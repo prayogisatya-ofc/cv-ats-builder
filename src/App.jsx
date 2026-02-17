@@ -19,11 +19,12 @@ import {
   IconBulb,
   IconDownload,
   IconFileTypePdf,
-  IconJson,
   IconRefresh,
-  IconUpload,
   IconCode,
+  IconCoffee
 } from "@tabler/icons-react";
+
+const TRAKTEER_URL = "https://trakteer.id/igoyclick";
 
 function TextInput({ label, value, onChange, placeholder, type = "text" }) {
   return (
@@ -107,6 +108,18 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <a 
+              href={TRAKTEER_URL} 
+              target="_blank" 
+              rel="noreferrer" 
+              aria-label="Trakteer" 
+              title="Traktir aku di Trakteer" 
+              className="group flex cursor-pointer items-center gap-2 rounded-lg border border-[#E50027] bg-[#E50027] hover:bg-[#E50027]/80 px-3 py-2 text-xs font-bold text-white transition"
+            >
+              <IconCoffee size={16} />
+              <span className="hidden sm:inline">Trakteer</span>
+            </a>
+
             <button
               className="cursor-pointer group cursor-pointer flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
               onClick={() => exportJSON(cv)}
@@ -116,26 +129,6 @@ export default function App() {
               <IconCode size={16} />
               <span className="hidden sm:inline">Export JSON</span>
             </button>
-
-            <label className="group flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-blue-300 hover:text-blue-600">
-              <IconUpload size={16} />
-              <span className="hidden sm:inline">Import JSON</span>
-              <input
-                type="file"
-                accept="application/json"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  try {
-                    const data = await importJSONFile(file);
-                    setCV(data);
-                  } catch {
-                    alert("File JSON tidak valid.");
-                  }
-                }}
-              />
-            </label>
 
             <div className="mx-1 h-6 w-px bg-slate-200"></div>
 
@@ -851,7 +844,7 @@ export default function App() {
               </div>
             </Panel>
 
-            <div className="mt-4 flex items-center gap-2 px-3 py-1.5 bg-white rounded-full border border-slate-200 justify-center self-center">
+            <div className="mt-4 flex items-start gap-2 px-3 py-1.5 bg-white rounded-full border border-slate-200 self-center">
               <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" data-astro-cid-j7pv25f6=""></path> 
               </svg>
@@ -864,6 +857,17 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      <a
+        href={TRAKTEER_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="fixed flex gap-2 right-0 top-2/3 z-50 -translate-y-1/2 rounded-l-xl bg-[#E50027] px-3 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-[#E50027]/80"
+        style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+      >
+        <IconCoffee size={16} className="rotate-90" />
+        Trakteer
+      </a>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
