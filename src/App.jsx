@@ -74,11 +74,146 @@ function DateInput({ label, value, onChange }) {
 function bulletsToText(arr = []) {
   return (arr || []).join("\n");
 }
+
 function textToBullets(txt = "") {
-  return txt
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const lines = txt.replace(/\r/g, "").split("\n");
+  return lines.map((line) => {
+    const cleaned = line.replace(/\t/g, " ").trim();
+    return cleaned;
+  });
+}
+
+const MONTHS = [
+  { value: "Jan", label: "Januari" },
+  { value: "Feb", label: "Februari" },
+  { value: "Mar", label: "Maret" },
+  { value: "Apr", label: "April" },
+  { value: "Mei", label: "Mei" },
+  { value: "Jun", label: "Juni" },
+  { value: "Jul", label: "Juli" },
+  { value: "Agu", label: "Agustus" },
+  { value: "Sep", label: "September" },
+  { value: "Okt", label: "Oktober" },
+  { value: "Nov", label: "November" },
+  { value: "Des", label: "Desember" },
+];
+
+function formatMonthYear(month, year) {
+  const m = (month || "").trim();
+  const y = (year || "").trim();
+  if (!m && !y) return "";
+  if (m && y) return `${m} ${y}`;
+  return `${m}${y ? ` ${y}` : ""}`.trim();
+}
+
+function formatRange(item) {
+  const start = formatMonthYear(item.startMonth, item.startYear);
+  const end = item.isCurrent ? "Sekarang" : formatMonthYear(item.endMonth, item.endYear);
+  if (!start && !end) return "";
+  if (!start) return end;
+  if (!end) return start;
+  return `${start} - ${end}`;
+}
+
+function MonthSelect({ label, value, onChange, disabled }) {
+  return (
+    <label className="block space-y-1.5">
+      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+      <select
+        className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 ${
+          disabled ? "opacity-60" : ""
+        }`}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+      >
+        <option value="">Pilih bulan</option>
+        {MONTHS.map((m) => (
+          <option key={m.value} value={m.value}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function YearInput({ label, value, onChange, disabled, placeholder = "2024" }) {
+  return (
+    <label className="block space-y-1.5">
+      <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
+      <input
+        type="text"
+        inputMode="numeric"
+        className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 ${
+          disabled ? "opacity-60" : ""
+        }`}
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+    </label>
+  );
+}
+
+function PeriodFields({
+  startMonth,
+  startYear,
+  endMonth,
+  endYear,
+  isCurrent,
+  onChange,
+}) {
+  const endDisabled = !!isCurrent;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-4 md:grid-cols-2">
+        <MonthSelect
+          label="Mulai (Bulan)"
+          value={startMonth}
+          onChange={(v) => onChange({ startMonth: v })}
+        />
+        <YearInput
+          label="Mulai (Tahun)"
+          value={startYear}
+          onChange={(v) => onChange({ startYear: v })}
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <MonthSelect
+          label="Selesai (Bulan)"
+          value={endMonth}
+          onChange={(v) => onChange({ endMonth: v })}
+          disabled={endDisabled}
+        />
+        <YearInput
+          label="Selesai (Tahun)"
+          value={endYear}
+          onChange={(v) => onChange({ endYear: v })}
+          disabled={endDisabled}
+        />
+      </div>
+
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-500 cursor-pointer">
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-slate-300 cursor-pointer"
+          checked={!!isCurrent}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            onChange({
+              isCurrent: checked,
+              ...(checked ? { endMonth: "", endYear: "" } : {}),
+            });
+          }}
+        />
+        Masih dilakukan
+      </label>
+    </div>
+  );
 }
 
 export default function App() {
@@ -215,6 +350,124 @@ export default function App() {
             />
           </AccordionItem>
 
+          <AccordionItem icon={IconSchool} title="Pendidikan" defaultOpen>
+            <div className="space-y-4">
+              {(cv.education || []).map((e, idx) => (
+                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                  <ItemHeader
+                    title={`Pendidikan #${idx + 1}`}
+                    onRemove={() =>
+                      setCV((p) => ({ ...p, education: (p.education || []).filter((_, i) => i !== idx) }))
+                    }
+                  />
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <TextInput
+                      label="Institusi"
+                      value={e.school}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], school: v };
+                          return { ...p, education: next };
+                        })
+                      }
+                      placeholder="Universitas Indonesia"
+                    />
+                    <TextInput
+                      label="Jurusan"
+                      value={e.degree}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], degree: v };
+                          return { ...p, education: next };
+                        })
+                      }
+                      placeholder="S1 Ilmu Komputer"
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <PeriodFields
+                      startMonth={e.startMonth}
+                      startYear={e.startYear}
+                      endMonth={e.endMonth}
+                      endYear={e.endYear}
+                      isCurrent={e.isCurrent}
+                      onChange={(patch) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], ...patch };
+                          return { ...p, education: next };
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <TextInput
+                      label="Lokasi"
+                      value={e.location}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], location: v };
+                          return { ...p, education: next };
+                        })
+                      }
+                      placeholder="Depok"
+                    />
+                    <TextInput
+                      label="IPK / GPA (Opsional)"
+                      value={e.gpa}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], gpa: v };
+                          return { ...p, education: next };
+                        })
+                      }
+                      placeholder="3.85 / 4.00"
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <TextArea
+                      label="Pencapaian (1 poin per baris)"
+                      value={bulletsToText(e.highlights)}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.education];
+                          next[idx] = { ...next[idx], highlights: textToBullets(v) };
+                          return { ...p, education: next };
+                        })
+                      }
+                      placeholder="- Menjadi Juara 1 dalam kompetisi..."
+                      rows={5}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <button
+                className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
+                type="button"
+                onClick={() =>
+                  setCV((p) => ({
+                    ...p,
+                    education: [
+                      ...(p.education || []),
+                      { school: "", degree: "", location: "", start: "", end: "", gpa: "", highlights: [] },
+                    ],
+                  }))
+                }
+              >
+                + Tambah Pendidikan
+              </button>
+            </div>
+          </AccordionItem>
+
           <AccordionItem icon={IconBriefcase} title="Pengalaman Kerja" defaultOpen>
             <div className="space-y-4">
               {(cv.work || []).map((w, idx) => (
@@ -253,25 +506,17 @@ export default function App() {
                     />
                   </div>
 
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <DateInput
-                      label="Mulai"
-                      value={w.start}
-                      onChange={(v) =>
+                  <div className="mt-4">
+                    <PeriodFields
+                      startMonth={w.startMonth}
+                      startYear={w.startYear}
+                      endMonth={w.endMonth}
+                      endYear={w.endYear}
+                      isCurrent={w.isCurrent}
+                      onChange={(patch) =>
                         setCV((p) => {
                           const next = [...p.work];
-                          next[idx] = { ...next[idx], start: v };
-                          return { ...p, work: next };
-                        })
-                      }
-                    />
-                    <DateInput
-                      label="Selesai"
-                      value={w.end}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.work];
-                          next[idx] = { ...next[idx], end: v };
+                          next[idx] = { ...next[idx], ...patch };
                           return { ...p, work: next };
                         })
                       }
@@ -329,116 +574,6 @@ export default function App() {
             </div>
           </AccordionItem>
 
-          <AccordionItem icon={IconSchool} title="Pendidikan" defaultOpen>
-            <div className="space-y-4">
-              {(cv.education || []).map((e, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
-                  <ItemHeader
-                    title={`Pendidikan #${idx + 1}`}
-                    onRemove={() =>
-                      setCV((p) => ({ ...p, education: (p.education || []).filter((_, i) => i !== idx) }))
-                    }
-                  />
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <TextInput
-                      label="Institusi"
-                      value={e.school}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], school: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                      placeholder="Universitas Indonesia"
-                    />
-                    <TextInput
-                      label="Jurusan"
-                      value={e.degree}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], degree: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                      placeholder="S1 Ilmu Komputer"
-                    />
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <DateInput
-                      label="Mulai"
-                      value={e.start}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], start: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                    />
-                    <DateInput
-                      label="Selesai"
-                      value={e.end}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], end: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <TextInput
-                      label="Lokasi"
-                      value={e.location}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], location: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                      placeholder="Depok"
-                    />
-                    <TextInput
-                      label="IPK / GPA (Opsional)"
-                      value={e.gpa}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.education];
-                          next[idx] = { ...next[idx], gpa: v };
-                          return { ...p, education: next };
-                        })
-                      }
-                      placeholder="3.85 / 4.00"
-                    />
-                  </div>
-                </div>
-              ))}
-
-              <button
-                className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
-                type="button"
-                onClick={() =>
-                  setCV((p) => ({
-                    ...p,
-                    education: [
-                      ...(p.education || []),
-                      { school: "", degree: "", location: "", start: "", end: "", gpa: "", highlights: [] },
-                    ],
-                  }))
-                }
-              >
-                + Tambah Pendidikan
-              </button>
-            </div>
-          </AccordionItem>
-
           <AccordionItem icon={IconBriefcase} title="Pengalaman Magang">
             <div className="space-y-4">
               {(cv.internship || []).map((w, idx) => (
@@ -473,25 +608,17 @@ export default function App() {
                       }
                     />
                   </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <DateInput
-                      label="Mulai"
-                      value={w.start}
-                      onChange={(v) =>
+                  <div className="mt-4">
+                    <PeriodFields
+                      startMonth={w.startMonth}
+                      startYear={w.startYear}
+                      endMonth={w.endMonth}
+                      endYear={w.endYear}
+                      isCurrent={w.isCurrent}
+                      onChange={(patch) =>
                         setCV((p) => {
                           const next = [...p.internship];
-                          next[idx] = { ...next[idx], start: v };
-                          return { ...p, internship: next };
-                        })
-                      }
-                    />
-                    <DateInput
-                      label="Selesai"
-                      value={w.end}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.internship];
-                          next[idx] = { ...next[idx], end: v };
+                          next[idx] = { ...next[idx], ...patch };
                           return { ...p, internship: next };
                         })
                       }
@@ -512,7 +639,7 @@ export default function App() {
                   </div>
                   <div className="mt-4">
                     <TextArea
-                      label="Deskripsi"
+                      label="Deskripsi (1 poin per baris)"
                       value={bulletsToText(w.bullets)}
                       onChange={(v) =>
                         setCV((p) => {
@@ -521,7 +648,7 @@ export default function App() {
                           return { ...p, internship: next };
                         })
                       }
-                      rows={3}
+                      rows={5}
                     />
                   </div>
                 </div>
@@ -581,25 +708,17 @@ export default function App() {
                       }
                     />
                   </div>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <DateInput
-                      label="Mulai"
-                      value={o.start}
-                      onChange={(v) =>
+                  <div className="mt-4">
+                    <PeriodFields
+                      startMonth={o.startMonth}
+                      startYear={o.startYear}
+                      endMonth={o.endMonth}
+                      endYear={o.endYear}
+                      isCurrent={o.isCurrent}
+                      onChange={(patch) =>
                         setCV((p) => {
                           const next = [...p.organization];
-                          next[idx] = { ...next[idx], start: v };
-                          return { ...p, organization: next };
-                        })
-                      }
-                    />
-                    <DateInput
-                      label="Selesai"
-                      value={o.end}
-                      onChange={(v) =>
-                        setCV((p) => {
-                          const next = [...p.organization];
-                          next[idx] = { ...next[idx], end: v };
+                          next[idx] = { ...next[idx], ...patch };
                           return { ...p, organization: next };
                         })
                       }
@@ -626,11 +745,11 @@ export default function App() {
             <div className="space-y-5">
               <TextArea
                 label="Soft Skill (Pisahkan dengan koma)"
-                value={(cv.skills?.soft || []).join(", ")}
+                value={cv.skills?.soft || ""}
                 onChange={(v) =>
                   setCV((p) => ({
                     ...p,
-                    skills: { ...(p.skills || {}), soft: v.split(",").map((x) => x.trim()).filter(Boolean) },
+                    skills: { ...(p.skills || {}), soft: v },
                   }))
                 }
                 placeholder="Komunikasi, Kepemimpinan, Problem Solving"
@@ -639,11 +758,11 @@ export default function App() {
 
               <TextArea
                 label="Hard Skill (Pisahkan dengan koma)"
-                value={(cv.skills?.hard || []).join(", ")}
+                value={cv.skills?.hard || ""}
                 onChange={(v) =>
                   setCV((p) => ({
                     ...p,
-                    skills: { ...(p.skills || {}), hard: v.split(",").map((x) => x.trim()).filter(Boolean) },
+                    skills: { ...(p.skills || {}), hard: v },
                   }))
                 }
                 placeholder="Data Analysis, SEO, Project Management"
@@ -652,11 +771,11 @@ export default function App() {
 
               <TextArea
                 label="Tools / Software (Pisahkan dengan koma)"
-                value={(cv.skills?.tools || []).join(", ")}
+                value={cv.skills?.tools || ""}
                 onChange={(v) =>
                   setCV((p) => ({
                     ...p,
-                    skills: { ...(p.skills || {}), tools: v.split(",").map((x) => x.trim()).filter(Boolean) },
+                    skills: { ...(p.skills || {}), tools: v },
                   }))
                 }
                 placeholder="Microsoft Excel, Figma, VS Code"

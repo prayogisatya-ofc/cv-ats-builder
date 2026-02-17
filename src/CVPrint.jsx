@@ -8,6 +8,23 @@ function Section({ title, children, className = "" }) {
     );
 }
 
+function formatMonthYear(month, year) {
+    const m = (month || "").trim();
+    const y = (year || "").trim();
+    if (!m && !y) return "";
+    if (m && y) return `${m} ${y}`;
+    return `${m}${y ? ` ${y}` : ""}`.trim();
+}
+
+function formatRange(item) {
+    const start = formatMonthYear(item.startMonth, item.startYear);
+    const end = item.isCurrent ? "Sekarang" : formatMonthYear(item.endMonth, item.endYear);
+    if (!start && !end) return "";
+    if (!start) return end;
+    if (!end) return start;
+    return `${start} - ${end}`;
+}
+
 export function CVPrint({ cv }) {
     const h = cv.header || {};
 
@@ -36,7 +53,7 @@ export function CVPrint({ cv }) {
                             </div>
                             <div className="right">
                                 <div className="meta">{e.location}</div>
-                                <div style={{ fontSize: 12 }}>{e.start} - {e.end}</div>
+                                <div style={{ fontSize: 12 }}>{formatRange(e)}</div>
                             </div>
                         </div>
                         <ul>
@@ -57,7 +74,7 @@ export function CVPrint({ cv }) {
                             </div>
                             <div className="right">
                                 <div className="meta">{w.location}</div>
-                                <div style={{ fontSize: 12 }}>{w.start} - {w.end}</div>
+                                <div style={{ fontSize: 12 }}>{formatRange(w)}</div>
                             </div>
                         </div>
                         <ul>
@@ -78,7 +95,7 @@ export function CVPrint({ cv }) {
                             </div>
                             <div className="right">
                                 <div className="meta">{w.location}</div>
-                                <div style={{ fontSize: 12 }}>{w.start} - {w.end}</div>
+                                <div style={{ fontSize: 12 }}>{formatRange(w)}</div>
                             </div>
                         </div>
                         <ul>
@@ -98,8 +115,8 @@ export function CVPrint({ cv }) {
                                 <div className="org-left-sub">{o.name}</div>
                             </div>
                             <div className="right">
-                                <div className="meta">{o.affiliation || "Universitas Teknokrat Indonesia"}</div>
-                                <div style={{ fontSize: 12 }}>{o.start} - {o.end}</div>
+                                <div className="meta">{o.affiliation}</div>
+                                <div style={{ fontSize: 12 }}>{formatRange(o)}</div>
                             </div>
                         </div>
                     </div>
@@ -133,15 +150,15 @@ export function CVPrint({ cv }) {
                 <div className="skill-grid">
                     <div className="skill-row">
                         <div className="skill-label">Soft Skill</div>
-                        <div className="skill-value">{(cv.skills?.soft || []).join(", ")}</div>
+                        <div className="skill-value">{cv.skills?.soft}</div>
                     </div>
                     <div className="skill-row">
                         <div className="skill-label">Hard Skill</div>
-                        <div className="skill-value">{(cv.skills?.hard || []).join(", ")}</div>
+                        <div className="skill-value">{cv.skills?.hard}</div>
                     </div>
                     <div className="skill-row">
                         <div className="skill-label">Software Skill</div>
-                        <div className="skill-value">{(cv.skills?.tools || []).join(", ")}</div>
+                        <div className="skill-value">{cv.skills?.tools}</div>
                     </div>
                 </div>
             </Section>

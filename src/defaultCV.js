@@ -11,36 +11,53 @@ export const defaultCV = {
     education: [
         {
             school: "",
-            location: "",
             degree: "",
+            location: "",
             gpa: "",
-            start: "",
-            end: "",
-            highlights: [],
+            startMonth: "", 
+            startYear: "", 
+            endMonth: "", 
+            endYear: "", 
+            isCurrent: false, 
+            highlights: []
         },
     ],
     work: [
         {
             company: "",
-            location: "",
             role: "",
-            start: "",
-            end: "",
-            bullets: [],
+            location: "",
+            startMonth: "", 
+            startYear: "", 
+            endMonth: "", 
+            endYear: "", 
+            isCurrent: false, 
+            bullets: []
         },
     ],
     internship: [
         {
             company: "",
-            location: "",
             role: "",
-            start: "",
-            end: "",
-            bullets: [],
+            location: "",
+            startMonth: "", 
+            startYear: "", 
+            endMonth: "", 
+            endYear: "", 
+            isCurrent: false, 
+            bullets: []
         },
     ],
     organization: [
-        { name: "", role: "", start: "", end: "" }
+        { 
+            name: "", 
+            role: "", 
+            startMonth: "", 
+            startYear: "", 
+            endMonth: "", 
+            endYear: "", 
+            isCurrent: false
+        }
     ],
     certification: [
         {
@@ -52,9 +69,9 @@ export const defaultCV = {
     ],
     awards: [],
     skills: {
-        soft: [],
-        hard: [],
-        tools: [],
+        soft: "",
+        hard: "",
+        tools: "",
     },
     projects: [
         {

@@ -1,3 +1,20 @@
+function formatMonthYear(month, year) {
+    const m = (month || "").trim();
+    const y = (year || "").trim();
+    if (!m && !y) return "";
+    if (m && y) return `${m} ${y}`;
+    return `${m}${y ? ` ${y}` : ""}`.trim();
+}
+
+function formatRange(item) {
+    const start = formatMonthYear(item.startMonth, item.startYear);
+    const end = item.isCurrent ? "Sekarang" : formatMonthYear(item.endMonth, item.endYear);
+    if (!start && !end) return "";
+    if (!start) return end;
+    if (!end) return start;
+    return `${start} - ${end}`;
+}
+
 export default function CVPreview({ cv }) {
     const h = cv.header || {};
     return (
@@ -23,7 +40,7 @@ export default function CVPreview({ cv }) {
                             leftTop={e.school}
                             leftSub={`${e.degree}${e.gpa ? ` | IPK: ${e.gpa}` : ""}`}
                             rightTop={e.location}
-                            rightSub={`${e.start || ""} - ${e.end || ""}`}
+                            rightSub={formatRange(e)}
                         />
                         {(e.highlights || []).length ? (
                             <ul className="ml-4 mt-1 list-disc">
@@ -43,7 +60,7 @@ export default function CVPreview({ cv }) {
                             leftTop={w.company}
                             leftSub={w.role}
                             rightTop={w.location}
-                            rightSub={`${w.start || ""} - ${w.end || ""}`}
+                            rightSub={formatRange(w)}
                         />
                         {(w.bullets || []).length ? (
                             <ul className="ml-4 mt-1 list-disc">
@@ -63,7 +80,7 @@ export default function CVPreview({ cv }) {
                             leftTop={w.company}
                             leftSub={w.role}
                             rightTop={w.location}
-                            rightSub={`${w.start || ""} - ${w.end || ""}`}
+                            rightSub={formatRange(w)}
                         />
                         {(w.bullets || []).length ? (
                             <ul className="ml-4 mt-1 list-disc">
@@ -83,7 +100,7 @@ export default function CVPreview({ cv }) {
                             leftTop={o.role}
                             leftSub={o.name}
                             rightTop={o.affiliation}
-                            rightSub={`${o.start || ""} - ${o.end || ""}`}
+                            rightSub={formatRange(o)}
                         />
                     </div>
                 ))}
@@ -116,22 +133,22 @@ export default function CVPreview({ cv }) {
 
             <Section title="SKILL">
                 <div className="mt-2 space-y-1">
-                    {(cv.skills?.soft || []).length ? (
+                    {cv.skills?.soft ? (
                         <div>
                             <span className="font-semibold">Soft Skill: </span>
-                            {(cv.skills.soft || []).join(", ")}
+                            {cv.skills.soft}
                         </div>
                     ) : null}
-                    {(cv.skills?.hard || []).length ? (
+                    {cv.skills?.hard ? (
                         <div>
                             <span className="font-semibold">Hard Skill: </span>
-                            {(cv.skills.hard || []).join(", ")}
+                            {cv.skills.hard}
                         </div>
                     ) : null}
-                    {(cv.skills?.tools || []).length ? (
+                    {cv.skills?.tools ? (
                         <div>
                             <span className="font-semibold">Tools: </span>
-                            {(cv.skills.tools || []).join(", ")}
+                            {cv.skills.tools}
                         </div>
                     ) : null}
                 </div>
