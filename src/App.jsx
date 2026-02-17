@@ -833,6 +833,17 @@ export default function App() {
                         })
                       }
                     />
+                    <TextInput
+                      label="Nomor Sertifikat"
+                      value={c.number}
+                      onChange={(v) =>
+                        setCV((p) => {
+                          const next = [...p.certification];
+                          next[idx] = { ...next[idx], number: v };
+                          return { ...p, certification: next };
+                        })
+                      }
+                    />
                   </div>
                 </div>
               ))}
