@@ -19,7 +19,50 @@ const hasText = (v) => (v || "").toString().trim().length > 0;
 
 const hasAny = (arr, predicate) => (arr || []).some(predicate);
 
-const hasAnyBullet = (arr) => (arr || []).some((x) => hasText(x));
+const hasAnyBullet = (arr) => {
+  if (typeof arr === "string") return hasText(arr);
+  return (arr || []).some((x) => hasText(x));
+};
+
+function DescBlock({ value, mode }) {
+  const effectiveMode =
+    mode === "text" || mode === "list"
+      ? mode
+      : typeof value === "string"
+        ? "text"
+        : "list";
+  if (effectiveMode === "text") {
+    const text = typeof value === "string" ? value : bulletsToTextPreview(value);
+    if (!hasText(text)) return null;
+    return (
+      <div className="mt-1 whitespace-pre-line text-justify text-[12px] leading-[1.5]">
+        {text.trim()}
+      </div>
+    );
+  }
+  const items = (
+    Array.isArray(value)
+      ? value
+      : typeof value === "string"
+        ? value.replace(/\r/g, "").split("\n")
+        : []
+  )
+    .map((x) => (x || "").trim())
+    .filter(Boolean);
+  if (!items.length) return null;
+  return (
+    <ul className="ml-4 mt-1 list-disc text-[12px] leading-[1.5]">
+      {items.map((x, idx) => (
+        <li key={idx}>{x}</li>
+      ))}
+    </ul>
+  );
+}
+
+function bulletsToTextPreview(arr) {
+  if (typeof arr === "string") return arr;
+  return (arr || []).join("\n");
+}
 
 const hasEducation = (cv) =>
   hasAny(cv.education, (e) =>
@@ -98,13 +141,7 @@ export default function CVPreview({ cv }) {
                                 rightTop={e.location}
                                 rightSub={formatRange(e)}
                             />
-                            {(e.highlights || []).length ? (
-                                <ul className="ml-4 mt-1 list-disc">
-                                    {e.highlights.map((x, idx) => (
-                                        <li key={idx}>{x}</li>
-                                    ))}
-                                </ul>
-                            ) : null}
+                            <DescBlock value={e.highlights} mode={e.highlightsMode} />
                         </div>
                     ))}
                 </Section>
@@ -120,13 +157,7 @@ export default function CVPreview({ cv }) {
                                 rightTop={w.location}
                                 rightSub={formatRange(w)}
                             />
-                            {(w.bullets || []).length ? (
-                                <ul className="ml-4 mt-1 list-disc">
-                                    {w.bullets.map((b, idx) => (
-                                        <li key={idx}>{b}</li>
-                                    ))}
-                                </ul>
-                            ) : null}
+                            <DescBlock value={w.bullets} mode={w.bulletsMode} />
                         </div>
                     ))}
                 </Section>
@@ -142,13 +173,7 @@ export default function CVPreview({ cv }) {
                                 rightTop={w.location}
                                 rightSub={formatRange(w)}
                             />
-                            {(w.bullets || []).length ? (
-                                <ul className="ml-4 mt-1 list-disc">
-                                    {w.bullets.map((b, idx) => (
-                                        <li key={idx}>{b}</li>
-                                    ))}
-                                </ul>
-                            ) : null}
+                            <DescBlock value={w.bullets} mode={w.bulletsMode} />
                         </div>
                     ))}
                 </Section>
@@ -228,13 +253,7 @@ export default function CVPreview({ cv }) {
                     {(cv.projects || []).map((p, i) => (
                         <div key={i} className="mt-2">
                             <div className="text-[12.5px] font-bold">{p.name}</div>
-                            {(p.bullets || []).length ? (
-                                <ul className="ml-4 mt-1 list-disc">
-                                    {p.bullets.map((b, idx) => (
-                                        <li key={idx}>{b}</li>
-                                    ))}
-                                </ul>
-                            ) : null}
+                            <DescBlock value={p.bullets} mode={p.bulletsMode} />
                         </div>
                     ))}
                 </Section>

@@ -19,7 +19,8 @@ export const defaultCV = {
             endMonth: "", 
             endYear: "", 
             isCurrent: false, 
-            highlights: []
+            highlights: [],
+            highlightsMode: "list"
         },
     ],
     work: [
@@ -32,7 +33,8 @@ export const defaultCV = {
             endMonth: "", 
             endYear: "", 
             isCurrent: false, 
-            bullets: []
+            bullets: [],
+            bulletsMode: "list"
         },
     ],
     internship: [
@@ -45,7 +47,8 @@ export const defaultCV = {
             endMonth: "", 
             endYear: "", 
             isCurrent: false, 
-            bullets: []
+            bullets: [],
+            bulletsMode: "list"
         },
     ],
     organization: [
@@ -77,6 +80,7 @@ export const defaultCV = {
         {
             name: "",
             bullets: [],
+            bulletsMode: "list",
         },
     ],
 };

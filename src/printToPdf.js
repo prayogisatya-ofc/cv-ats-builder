@@ -35,8 +35,10 @@ export function printHtmlToPdf({ title = "CV ATS", html }) {
     .item-sub { font-style: italic; font-size: 12px; margin-top: 1px; }
     .meta { font-size: 12px; font-weight: 700; }
 
-    ul { margin: 4px 0 0 18px; padding: 0; font-size: 12px; }
+    ul { margin: 4px 0 0 18px; padding: 0; font-size: 12px; line-height: 1.5; }
     li { margin: 1px 0; }
+
+    .desc-text { margin: 4px 0 0 0; padding: 0; font-size: 12px; line-height: 1.5; text-align: justify; white-space: pre-line; }
 
     .org-left-top { font-weight: 700; font-size: 12.5px; }
     .org-left-sub { font-style: italic; font-size: 12px; margin-top: 1px; }

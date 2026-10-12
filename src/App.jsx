@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { defaultCV } from "./defaultCV";
-import { exportJSON, importJSONFile, loadCV, saveCV } from "./storage";
+import { exportJSON, importJSONFile, loadCV, normalizeCV, saveCV } from "./storage";
 import { printHtmlToPdf } from "./printToPdf";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CVPrint } from "./CVPrint";
 
 import CVPreview from "./CVPreview";
-import { AccordionItem, ItemHeader, Panel, PanelHeader } from "./ui";
+import { AccordionItem, ConfirmDialog, ItemHeader, Panel, PanelHeader } from "./ui";
 
 import {
   IconUser,
@@ -21,7 +21,13 @@ import {
   IconFileTypePdf,
   IconRefresh,
   IconCode,
-  IconCoffee
+  IconCoffee,
+  IconGripVertical,
+  IconChevronUp,
+  IconChevronDown,
+  IconUpload,
+  IconAlertTriangle,
+  IconTrash,
 } from "@tabler/icons-react";
 
 const TRAKTEER_URL = "https://trakteer.id/igoyclick";
@@ -71,16 +77,99 @@ function DateInput({ label, value, onChange }) {
   );
 }
 
-function bulletsToText(arr = []) {
+function bulletsToText(arr) {
+  if (typeof arr === "string") return arr;
   return (arr || []).join("\n");
 }
 
 function textToBullets(txt = "") {
-  const lines = txt.replace(/\r/g, "").split("\n");
-  return lines.map((line) => {
-    const cleaned = line.replace(/\t/g, " ").trim();
-    return cleaned;
-  });
+  if (!txt) return [];
+  // Jangan trim/filter di sini agar spasi bisa diketik.
+  // Trim & filter hanya saat render (preview/print).
+  return txt.replace(/\r/g, "").split("\n").map((line) => line.replace(/\t/g, " "));
+}
+
+function ListOrTextArea({
+  label,
+  value,
+  mode,
+  onChange,
+  placeholderList,
+  placeholderText,
+  rows = 5,
+}) {
+  const effectiveMode =
+    mode === "text" || mode === "list"
+      ? mode
+      : typeof value === "string"
+        ? "text"
+        : "list";
+  const isText = effectiveMode === "text";
+  const displayValue = isText
+    ? typeof value === "string"
+      ? value
+      : bulletsToText(value)
+    : Array.isArray(value)
+      ? bulletsToText(value)
+      : typeof value === "string"
+        ? value
+        : "";
+
+  const setMode = (next) => {
+    if (next === effectiveMode) return;
+    if (next === "text") {
+      onChange(bulletsToText(value), "text");
+    } else {
+      onChange(textToBullets(typeof value === "string" ? value : bulletsToText(value)), "list");
+    }
+  };
+
+  const btnBase =
+    "cursor-pointer rounded-md px-2.5 py-1 transition-all";
+  const btnActive = "bg-white text-slate-800 shadow-sm";
+  const btnInactive = "text-slate-500 hover:text-slate-700";
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+          {label}
+        </div>
+        <div className="flex items-center gap-0.5 rounded-lg bg-slate-200/70 p-0.5 text-[11px] font-bold">
+          <button
+            type="button"
+            onClick={() => setMode("list")}
+            className={`${btnBase} ${!isText ? btnActive : btnInactive}`}
+            title="Tampilkan sebagai bullet list"
+          >
+            • List
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("text")}
+            className={`${btnBase} ${isText ? btnActive : btnInactive}`}
+            title="Tampilkan sebagai teks biasa/paragraf"
+          >
+            Teks
+          </button>
+        </div>
+      </div>
+      <textarea
+        rows={rows}
+        className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+        value={displayValue}
+        placeholder={isText ? placeholderText : placeholderList}
+        onChange={(e) =>
+          onChange(isText ? e.target.value : textToBullets(e.target.value), effectiveMode)
+        }
+      />
+      <div className="text-[11px] text-slate-400">
+        {isText
+          ? "Mode teks: tampil sebagai paragraf biasa."
+          : "Mode list: 1 baris = 1 poin bullet."}
+      </div>
+    </div>
+  );
 }
 
 const MONTHS = [
@@ -216,13 +305,133 @@ function PeriodFields({
   );
 }
 
+function moveArray(arr = [], from, to) {
+  if (from === to) return arr;
+  if (from < 0 || from >= arr.length || to < 0 || to >= arr.length) return arr;
+  const next = [...arr];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+function createDragStart(listId, index) {
+  return (e) => {
+    e.dataTransfer.setData("text/plain", `${listId}:${index}`);
+    e.dataTransfer.effectAllowed = "move";
+  };
+}
+
+function parseDrop(listId, e) {
+  const raw = e.dataTransfer.getData("text/plain") || "";
+  const [srcList, srcIdx] = raw.split(":");
+  if (srcList !== listId) return null;
+  const from = Number(srcIdx);
+  if (!Number.isInteger(from)) return null;
+  return from;
+}
+
+function DroppableCard({ listId, index, onMove, children }) {
+  const [isOver, setIsOver] = useState(false);
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsOver(true);
+      }}
+      onDragLeave={() => setIsOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsOver(false);
+        const from = parseDrop(listId, e);
+        if (from !== null && from !== index) onMove(from, index);
+      }}
+      className={`group relative rounded-xl border bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md ${
+        isOver ? "border-blue-500 shadow-md ring-2 ring-blue-200" : "border-slate-200"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function AwardRow({ listId, index, total, onMove, children }) {
+  const [isOver, setIsOver] = useState(false);
+  const btnCls =
+    "flex h-10 w-8 shrink-0 items-center justify-center text-slate-400 transition-colors hover:text-slate-600 disabled:opacity-25";
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsOver(true);
+      }}
+      onDragLeave={() => setIsOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsOver(false);
+        const from = parseDrop(listId, e);
+        if (from !== null && from !== index) onMove(from, index);
+      }}
+      className={`flex items-center gap-1 rounded-lg border bg-white transition-all ${
+        isOver ? "border-blue-500 ring-2 ring-blue-200" : "border-transparent"
+      }`}
+    >
+      <span
+        draggable
+        onDragStart={createDragStart(listId, index)}
+        className="cursor-grab touch-none rounded-md p-1 pl-2 text-slate-400 hover:text-slate-600 active:cursor-grabbing"
+        title="Seret untuk mengurutkan"
+      >
+        <IconGripVertical size={16} />
+      </span>
+      <div className="flex flex-col">
+        <button type="button" className={btnCls} onClick={() => onMove(index, index - 1)} disabled={index <= 0} title="Pindah ke atas">
+          <IconChevronUp size={14} />
+        </button>
+        <button type="button" className={btnCls} onClick={() => onMove(index, index + 1)} disabled={index >= total - 1} title="Pindah ke bawah">
+          <IconChevronDown size={14} />
+        </button>
+      </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2 py-1 pr-1">{children}</div>
+    </div>
+  );
+}
+
 export default function App() {
-  const [cv, setCV] = useState(() => loadCV() || defaultCV);
+  const [cv, setCV] = useState(() => {
+    try {
+      const loaded = loadCV();
+      return loaded ? normalizeCV(loaded) : defaultCV;
+    } catch {
+      return defaultCV;
+    }
+  });
+  const fileRef = useRef(null);
+  const [showReset, setShowReset] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+  const [importError, setImportError] = useState(null);
 
   useEffect(() => saveCV(cv), [cv]);
 
   const setHeader = (patch) =>
     setCV((prev) => ({ ...prev, header: { ...(prev.header || {}), ...patch } }));
+
+  const moveInList = (key, from, to) =>
+    setCV((p) => ({ ...p, [key]: moveArray(p[key] || [], from, to) }));
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const raw = await importJSONFile(file);
+      const normalized = normalizeCV(raw);
+      setPendingImport({ data: normalized, name: file.name });
+    } catch (err) {
+      setImportError("File JSON tidak valid. Pastikan file hasil Export JSON.");
+    }
+  };
 
   const exportPdf = () => {
     const html = renderToStaticMarkup(<CVPrint cv={cv} />);
@@ -265,16 +474,28 @@ export default function App() {
               <span className="hidden sm:inline">Export JSON</span>
             </button>
 
+            <button
+              className="cursor-pointer flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-blue-300 hover:text-blue-600"
+              onClick={() => fileRef.current?.click()}
+              title="Import Data JSON"
+              type="button"
+            >
+              <IconUpload size={16} />
+              <span className="hidden sm:inline">Import JSON</span>
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={handleImportFile}
+            />
+
             <div className="mx-1 h-6 w-px bg-slate-200"></div>
 
             <button
               className="cursor-pointer flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-100"
-              onClick={() => {
-                if (window.confirm("Yakin ingin mereset semua data?")) {
-                  localStorage.removeItem("cv_ats_builder_v1");
-                  setCV(defaultCV);
-                }
-              }}
+              onClick={() => setShowReset(true)}
               title="Reset ke Default"
               type="button"
             >
@@ -353,12 +574,16 @@ export default function App() {
           <AccordionItem icon={IconSchool} title="Pendidikan" defaultOpen>
             <div className="space-y-4">
               {(cv.education || []).map((e, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="education" index={idx} onMove={(from, to) => moveInList("education", from, to)}>
                   <ItemHeader
                     title={`Pendidikan #${idx + 1}`}
                     onRemove={() =>
                       setCV((p) => ({ ...p, education: (p.education || []).filter((_, i) => i !== idx) }))
                     }
+                    index={idx}
+                    total={(cv.education || []).length}
+                    onMove={(from, to) => moveInList("education", from, to)}
+                    onDragStart={createDragStart("education", idx)}
                   />
 
                   <div className="grid gap-4 md:grid-cols-2">
@@ -433,21 +658,23 @@ export default function App() {
                   </div>
 
                   <div className="mt-4">
-                    <TextArea
-                      label="Pencapaian (1 poin per baris)"
-                      value={bulletsToText(e.highlights)}
-                      onChange={(v) =>
+                    <ListOrTextArea
+                      label="Pencapaian"
+                      value={e.highlights}
+                      mode={e.highlightsMode}
+                      onChange={(v, m) =>
                         setCV((p) => {
                           const next = [...p.education];
-                          next[idx] = { ...next[idx], highlights: textToBullets(v) };
+                          next[idx] = { ...next[idx], highlights: v, highlightsMode: m };
                           return { ...p, education: next };
                         })
                       }
-                      placeholder="- Menjadi Juara 1 dalam kompetisi..."
+                      placeholderList="- Menjadi Juara 1 dalam kompetisi..."
+                      placeholderText="Tulis pencapaian dalam bentuk paragraf bebas..."
                       rows={5}
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
 
               <button
@@ -458,7 +685,7 @@ export default function App() {
                     ...p,
                     education: [
                       ...(p.education || []),
-                      { school: "", degree: "", location: "", start: "", end: "", gpa: "", highlights: [] },
+                      { school: "", degree: "", location: "", start: "", end: "", gpa: "", highlights: [], highlightsMode: "list" },
                     ],
                   }))
                 }
@@ -471,12 +698,16 @@ export default function App() {
           <AccordionItem icon={IconBriefcase} title="Pengalaman Kerja" defaultOpen>
             <div className="space-y-4">
               {(cv.work || []).map((w, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="work" index={idx} onMove={(from, to) => moveInList("work", from, to)}>
                   <ItemHeader
                     title={`Pengalaman #${idx + 1}`}
                     onRemove={() =>
                       setCV((p) => ({ ...p, work: (p.work || []).filter((_, i) => i !== idx) }))
                     }
+                    index={idx}
+                    total={(cv.work || []).length}
+                    onMove={(from, to) => moveInList("work", from, to)}
+                    onDragStart={createDragStart("work", idx)}
                   />
 
                   <div className="grid gap-4 md:grid-cols-2">
@@ -539,21 +770,23 @@ export default function App() {
                   </div>
 
                   <div className="mt-4">
-                    <TextArea
-                      label="Pencapaian (1 poin per baris)"
-                      value={bulletsToText(w.bullets)}
-                      onChange={(v) =>
+                    <ListOrTextArea
+                      label="Pencapaian"
+                      value={w.bullets}
+                      mode={w.bulletsMode}
+                      onChange={(v, m) =>
                         setCV((p) => {
                           const next = [...p.work];
-                          next[idx] = { ...next[idx], bullets: textToBullets(v) };
+                          next[idx] = { ...next[idx], bullets: v, bulletsMode: m };
                           return { ...p, work: next };
                         })
                       }
-                      placeholder="- Berhasil meningkatkan penjualan..."
+                      placeholderList="- Berhasil meningkatkan penjualan..."
+                      placeholderText="Tulis pencapaian dalam bentuk paragraf bebas..."
                       rows={5}
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
 
               <button
@@ -564,7 +797,7 @@ export default function App() {
                     ...p,
                     work: [
                       ...(p.work || []),
-                      { company: "", role: "", location: "", start: "", end: "", bullets: [] },
+                      { company: "", role: "", location: "", start: "", end: "", bullets: [], bulletsMode: "list" },
                     ],
                   }))
                 }
@@ -577,12 +810,16 @@ export default function App() {
           <AccordionItem icon={IconBriefcase} title="Pengalaman Magang">
             <div className="space-y-4">
               {(cv.internship || []).map((w, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="internship" index={idx} onMove={(from, to) => moveInList("internship", from, to)}>
                   <ItemHeader
                     title={`Magang #${idx + 1}`}
                     onRemove={() =>
                       setCV((p) => ({ ...p, internship: (p.internship || []).filter((_, i) => i !== idx) }))
                     }
+                    index={idx}
+                    total={(cv.internship || []).length}
+                    onMove={(from, to) => moveInList("internship", from, to)}
+                    onDragStart={createDragStart("internship", idx)}
                   />
                   <div className="grid gap-4 md:grid-cols-2">
                     <TextInput
@@ -638,20 +875,23 @@ export default function App() {
                     />
                   </div>
                   <div className="mt-4">
-                    <TextArea
-                      label="Deskripsi (1 poin per baris)"
-                      value={bulletsToText(w.bullets)}
-                      onChange={(v) =>
+                    <ListOrTextArea
+                      label="Deskripsi"
+                      value={w.bullets}
+                      mode={w.bulletsMode}
+                      onChange={(v, m) =>
                         setCV((p) => {
                           const next = [...p.internship];
-                          next[idx] = { ...next[idx], bullets: textToBullets(v) };
+                          next[idx] = { ...next[idx], bullets: v, bulletsMode: m };
                           return { ...p, internship: next };
                         })
                       }
+                      placeholderList="Tulis 1 poin per baris..."
+                      placeholderText="Tulis deskripsi dalam bentuk paragraf bebas..."
                       rows={5}
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
               <button
                 className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
@@ -661,7 +901,7 @@ export default function App() {
                     ...p,
                     internship: [
                       ...(p.internship || []),
-                      { company: "", role: "", location: "", start: "", end: "", bullets: [] },
+                      { company: "", role: "", location: "", start: "", end: "", bullets: [], bulletsMode: "list" },
                     ],
                   }))
                 }
@@ -674,7 +914,7 @@ export default function App() {
           <AccordionItem icon={IconBulb} title="Organisasi">
             <div className="space-y-4">
               {(cv.organization || []).map((o, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="organization" index={idx} onMove={(from, to) => moveInList("organization", from, to)}>
                   <ItemHeader
                     title={`Organisasi #${idx + 1}`}
                     onRemove={() =>
@@ -683,6 +923,10 @@ export default function App() {
                         organization: (p.organization || []).filter((_, i) => i !== idx),
                       }))
                     }
+                    index={idx}
+                    total={(cv.organization || []).length}
+                    onMove={(from, to) => moveInList("organization", from, to)}
+                    onDragStart={createDragStart("organization", idx)}
                   />
                   <div className="grid gap-4 md:grid-cols-2">
                     <TextInput
@@ -724,7 +968,7 @@ export default function App() {
                       }
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
               <button
                 className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
@@ -787,7 +1031,7 @@ export default function App() {
           <AccordionItem icon={IconCertificate} title="Sertifikasi">
             <div className="space-y-4">
               {(cv.certification || []).map((c, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="certification" index={idx} onMove={(from, to) => moveInList("certification", from, to)}>
                   <ItemHeader
                     title={`Sertifikasi #${idx + 1}`}
                     onRemove={() =>
@@ -796,6 +1040,10 @@ export default function App() {
                         certification: (p.certification || []).filter((_, i) => i !== idx),
                       }))
                     }
+                    index={idx}
+                    total={(cv.certification || []).length}
+                    onMove={(from, to) => moveInList("certification", from, to)}
+                    onDragStart={createDragStart("certification", idx)}
                   />
                   <div className="grid gap-4 md:grid-cols-2">
                     <TextInput
@@ -845,7 +1093,7 @@ export default function App() {
                       }
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
               <button
                 className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
@@ -865,7 +1113,13 @@ export default function App() {
           <AccordionItem icon={IconTrophy} title="Penghargaan">
             <div className="space-y-3">
               {(cv.awards || []).map((a, idx) => (
-                <div key={idx} className="flex gap-2">
+                <AwardRow
+                  key={idx}
+                  listId="awards"
+                  index={idx}
+                  total={(cv.awards || []).length}
+                  onMove={(from, to) => moveInList("awards", from, to)}
+                >
                   <input
                     className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                     value={a}
@@ -887,7 +1141,7 @@ export default function App() {
                   >
                     <span className="text-xl font-bold">×</span>
                   </button>
-                </div>
+                </AwardRow>
               ))}
               <button
                 className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
@@ -902,12 +1156,16 @@ export default function App() {
           <AccordionItem icon={IconBulb} title="Proyek (Opsional)">
             <div className="space-y-4">
               {(cv.projects || []).map((pjt, idx) => (
-                <div key={idx} className="group relative rounded-xl border border-slate-200 bg-slate-50 p-5 transition-all hover:border-blue-300 hover:shadow-md">
+                <DroppableCard key={idx} listId="projects" index={idx} onMove={(from, to) => moveInList("projects", from, to)}>
                   <ItemHeader
                     title={`Proyek #${idx + 1}`}
                     onRemove={() =>
                       setCV((p) => ({ ...p, projects: (p.projects || []).filter((_, i) => i !== idx) }))
                     }
+                    index={idx}
+                    total={(cv.projects || []).length}
+                    onMove={(from, to) => moveInList("projects", from, to)}
+                    onDragStart={createDragStart("projects", idx)}
                   />
                   <TextInput
                     label="Nama Proyek"
@@ -921,26 +1179,29 @@ export default function App() {
                     }
                   />
                   <div className="mt-4">
-                    <TextArea
+                    <ListOrTextArea
                       label="Deskripsi Proyek"
-                      value={bulletsToText(pjt.bullets)}
-                      onChange={(v) =>
+                      value={pjt.bullets}
+                      mode={pjt.bulletsMode}
+                      onChange={(v, m) =>
                         setCV((p) => {
                           const next = [...p.projects];
-                          next[idx] = { ...next[idx], bullets: textToBullets(v) };
+                          next[idx] = { ...next[idx], bullets: v, bulletsMode: m };
                           return { ...p, projects: next };
                         })
                       }
+                      placeholderList="Tulis 1 poin per baris..."
+                      placeholderText="Tulis deskripsi proyek dalam bentuk paragraf bebas..."
                       rows={3}
                     />
                   </div>
-                </div>
+                </DroppableCard>
               ))}
               <button
                 className="cursor-pointer flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-bold text-slate-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600"
                 type="button"
                 onClick={() =>
-                  setCV((p) => ({ ...p, projects: [...(p.projects || []), { name: "", bullets: [] }] }))
+                  setCV((p) => ({ ...p, projects: [...(p.projects || []), { name: "", bullets: [], bulletsMode: "list" }] }))
                 }
               >
                 + Tambah Proyek
@@ -999,6 +1260,65 @@ export default function App() {
         Trakteer
       </a>
 
+      <ConfirmDialog
+        open={showReset}
+        title="Reset semua data?"
+        message="Seluruh isian CV akan dikembalikan ke bawaan dan data saat ini akan hilang. Tindakan ini tidak bisa dibatalkan."
+        confirmLabel="Ya, reset"
+        cancelLabel="Batal"
+        confirmClass="bg-red-600 hover:bg-red-700"
+        icon={
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <IconTrash size={22} />
+          </span>
+        }
+        onCancel={() => setShowReset(false)}
+        onConfirm={() => {
+          localStorage.removeItem("cv_ats_builder_v1");
+          setCV(defaultCV);
+          setShowReset(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!pendingImport}
+        title="Timpa data dengan file import?"
+        message={
+          pendingImport
+            ? `File "${pendingImport.name}" akan menimpa seluruh data CV saat ini.`
+            : ""
+        }
+        confirmLabel="Ya, import"
+        cancelLabel="Batal"
+        confirmClass="bg-blue-600 hover:bg-blue-700"
+        icon={
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+            <IconUpload size={22} />
+          </span>
+        }
+        onCancel={() => setPendingImport(null)}
+        onConfirm={() => {
+          if (pendingImport) setCV(pendingImport.data);
+          setPendingImport(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!importError}
+        title="Import gagal"
+        message={importError || ""}
+        confirmLabel="Mengerti"
+        singleButton
+        confirmClass="bg-slate-800 hover:bg-slate-900"
+        icon={
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <IconAlertTriangle size={22} />
+          </span>
+        }
+        onConfirm={() => setImportError(null)}
+        onCancel={() => setImportError(null)}
+      />
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -1012,6 +1332,13 @@ export default function App() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
+        }
+        @keyframes modal-pop {
+          from { opacity: 0; transform: scale(0.95) translateY(8px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-pop {
+          animation: modal-pop 0.18s ease-out;
         }
       `}</style>
     </div>

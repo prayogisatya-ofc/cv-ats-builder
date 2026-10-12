@@ -27,7 +27,42 @@ function formatRange(item) {
 
 const hasText = (v) => (v || "").toString().trim().length > 0;
 const hasAny = (arr, predicate) => (arr || []).some(predicate);
-const hasAnyBullet = (arr) => (arr || []).some((x) => hasText(x));
+const hasAnyBullet = (arr) => {
+    if (typeof arr === "string") return hasText(arr);
+    return (arr || []).some((x) => hasText(x));
+};
+
+function DescBlock({ value, mode }) {
+    const effectiveMode =
+        mode === "text" || mode === "list"
+            ? mode
+            : typeof value === "string"
+              ? "text"
+              : "list";
+    if (effectiveMode === "text") {
+        const text =
+            typeof value === "string"
+                ? value
+                : (value || []).join("\n");
+        if (!hasText(text)) return null;
+        return <div className="desc-text">{text.trim()}</div>;
+    }
+    const items = (
+        Array.isArray(value)
+            ? value
+            : typeof value === "string"
+              ? value.replace(/\r/g, "").split("\n")
+              : []
+    )
+        .map((x) => (x || "").trim())
+        .filter(Boolean);
+    if (!items.length) return null;
+    return (
+        <ul>
+            {items.map((x, idx) => <li key={idx}>{x}</li>)}
+        </ul>
+    );
+}
 
 const showEducation = (cv) =>
     hasAny(cv.education, (e) =>
@@ -95,9 +130,7 @@ export function CVPrint({ cv }) {
                                     <div style={{ fontSize: 12 }}>{formatRange(e)}</div>
                                 </div>
                             </div>
-                            <ul>
-                                {(e.highlights || []).map((x, idx) => <li key={idx}>{x}</li>)}
-                            </ul>
+                            <DescBlock value={e.highlights} mode={e.highlightsMode} />
                         </div>
                     ))}
                 </Section>
@@ -118,9 +151,7 @@ export function CVPrint({ cv }) {
                                     <div style={{ fontSize: 12 }}>{formatRange(w)}</div>
                                 </div>
                             </div>
-                            <ul>
-                                {(w.bullets || []).map((b, idx) => <li key={idx}>{b}</li>)}
-                            </ul>
+                            <DescBlock value={w.bullets} mode={w.bulletsMode} />
                         </div>
                     ))}
                 </Section>
@@ -141,9 +172,7 @@ export function CVPrint({ cv }) {
                                     <div style={{ fontSize: 12 }}>{formatRange(w)}</div>
                                 </div>
                             </div>
-                            <ul>
-                                {(w.bullets || []).map((b, idx) => <li key={idx}>{b}</li>)}
-                            </ul>
+                            <DescBlock value={w.bullets} mode={w.bulletsMode} />
                         </div>
                     ))}
                 </Section>
@@ -221,9 +250,7 @@ export function CVPrint({ cv }) {
                     {(cv.projects || []).map((p, i) => (
                         <div className="avoid-break" key={i} style={{ marginTop: i === 0 ? 6 : 10 }}>
                             <div className="item-title">{p.name}</div>
-                            <ul>
-                                {(p.bullets || []).map((b, idx) => <li key={idx}>{b}</li>)}
-                            </ul>
+                            <DescBlock value={p.bullets} mode={p.bulletsMode} />
                         </div>
                     ))}
                 </Section>
